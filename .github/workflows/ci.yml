@@ -22,7 +22,10 @@ jobs:
         with:
           workspaces: rust
       - run: cargo fmt --manifest-path rust/Cargo.toml --check
-      - run: cargo clippy --manifest-path rust/Cargo.toml --all-targets -- -D warnings
+      - name: clippy
+        shell: bash
+        run: |
+          cargo clippy --manifest-path rust/Cargo.toml --all-targets -- -D warnings > out.txt 2>&1 || { rc=$?; head -c 1500 out.txt | tr '\n' '|' | sed 's/^/::error::/'; echo; exit $rc; }
 
   python:
     runs-on: ubuntu-latest
@@ -41,6 +44,7 @@ jobs:
   rust:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
@@ -49,7 +53,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
-      - run: cargo test --manifest-path rust/Cargo.toml
+      - name: test
+        shell: bash
+        run: |
+          cargo test --manifest-path rust/Cargo.toml > out.txt 2>&1 || { rc=$?; grep -E "panicked|FAILED|failed|error|left|right|assert" out.txt | head -c 1500 | tr '\n' '|' | sed 's/^/::error::/'; echo; exit $rc; }
       - run: cargo build --release --manifest-path rust/Cargo.toml
         if: matrix.os == 'ubuntu-latest'
       - run: scripts/crosscheck.sh rust/target/release/tinymem
