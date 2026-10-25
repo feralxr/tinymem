@@ -171,24 +171,43 @@ fn engine_index_search_memory() {
     let _ = std::fs::remove_dir_all(root.parent().unwrap());
 }
 
-const MINIMAL_PDF: &[u8] = b"%PDF-1.4
-1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
-2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj
-3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 200]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj
-4 0 obj<</Length 63>>stream
-BT /F1 14 Tf 20 100 Td (Quarterly refund policy for enterprise customers) Tj ET
-endstream
-endobj
-5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj
-trailer<</Root 1 0 R/Size 6>>
-%%EOF
-";
+/// Build a small, fully valid one-page PDF (with a correct cross-reference table).
+fn minimal_pdf() -> Vec<u8> {
+    let stream = "BT /F1 14 Tf 20 100 Td (Quarterly refund policy for enterprise customers) Tj ET";
+    let objs = [
+        "<</Type/Catalog/Pages 2 0 R>>".to_string(),
+        "<</Type/Pages/Kids[3 0 R]/Count 1>>".to_string(),
+        "<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 200]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>".to_string(),
+        format!("<</Length {}>>\nstream\n{}\nendstream", stream.len(), stream),
+        "<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>".to_string(),
+    ];
+    let mut out = b"%PDF-1.4\n".to_vec();
+    let mut offsets = Vec::new();
+    for (i, o) in objs.iter().enumerate() {
+        offsets.push(out.len());
+        out.extend(format!("{} 0 obj\n{}\nendobj\n", i + 1, o).as_bytes());
+    }
+    let xref = out.len();
+    out.extend(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).as_bytes());
+    for off in offsets {
+        out.extend(format!("{:010} 00000 n \n", off).as_bytes());
+    }
+    out.extend(
+        format!(
+            "trailer\n<</Root 1 0 R/Size {}>>\nstartxref\n{}\n%%EOF\n",
+            objs.len() + 1,
+            xref
+        )
+        .as_bytes(),
+    );
+    out
+}
 
 #[test]
 fn pdf_pages_are_indexed_and_corrupt_pdfs_are_reported() {
     let root = tmpdir("pdf").join("proj");
     std::fs::create_dir_all(root.join("docs")).unwrap();
-    std::fs::write(root.join("docs/policy.pdf"), MINIMAL_PDF).unwrap();
+    std::fs::write(root.join("docs/policy.pdf"), minimal_pdf()).unwrap();
     std::fs::write(root.join("docs/broken.pdf"), b"not really a pdf\n".repeat(20)).unwrap();
     std::fs::write(root.join("docs/ok.md"), "# Notes\n\nplain text\n").unwrap();
 

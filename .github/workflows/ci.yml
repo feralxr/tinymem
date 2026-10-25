@@ -25,7 +25,7 @@ jobs:
       - name: clippy
         shell: bash
         run: |
-          cargo clippy --manifest-path rust/Cargo.toml --all-targets -- -D warnings > out.txt 2>&1 || { rc=$?; head -c 1500 out.txt | tr '\n' '|' | sed 's/^/::error::/'; echo; exit $rc; }
+          cargo clippy --color never --manifest-path rust/Cargo.toml --all-targets -- -D warnings > out.txt 2>&1 || { rc=$?; grep -aE -A6 '^(error|warning)' out.txt | head -c 1800 | tr '\n' '|' | sed 's/^/::error::/'; echo; exit $rc; }
 
   python:
     runs-on: ubuntu-latest
