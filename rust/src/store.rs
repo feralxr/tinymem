@@ -622,7 +622,7 @@ impl Store {
         }
         self.with_vectors(|c| {
             let mut scored: Vec<(f32, usize)> = Vec::new();
-            for (i, row) in c.mat.chunks_exact(DIM).enumerate() {
+            for (i, row) in c.mat.as_chunks::<DIM>().0.iter().enumerate() {
                 if !kinds.is_empty() && !kinds.iter().any(|k| *k == c.kinds[i]) {
                     continue;
                 }
