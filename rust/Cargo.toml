@@ -1,0 +1,25 @@
+[package]
+name = "tinymem"
+version = "0.1.0"
+edition = "2021"
+description = "Tiny local hybrid search and memory for agents: index code, docs and PDFs in one SQLite file."
+license = "MIT"
+readme = "../README.md"
+keywords = ["search", "agents", "mcp", "bm25", "sqlite"]
+categories = ["command-line-utilities", "text-processing"]
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+pdf-extract = "0.12"
+rayon = "1"
+rusqlite = { version = "0.40", features = ["bundled"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+sha2 = "0.11"
+unicode-general-category = "1"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+opt-level = 3

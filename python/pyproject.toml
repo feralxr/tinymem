@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tinymem"
+version = "0.1.0"
+description = "Tiny local hybrid search and memory for agents: index code, docs and PDFs in one SQLite file."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = []
+
+[project.optional-dependencies]
+fast = ["numpy"]
+pdf = ["pypdf"]
+all = ["numpy", "pypdf"]
+
+[project.scripts]
+tinymem = "tinymem.cli:main"
+
+[tool.setuptools]
+packages = ["tinymem"]
