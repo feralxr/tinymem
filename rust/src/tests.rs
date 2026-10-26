@@ -228,6 +228,47 @@ fn pdf_pages_are_indexed_and_corrupt_pdfs_are_reported() {
 }
 
 #[test]
+fn awkward_inputs_do_not_crash() {
+    let root = tmpdir("awkward").join("proj");
+    std::fs::create_dir_all(root.join("src")).unwrap();
+    std::fs::write(root.join("src/crlf.py"), b"def crlf_marker():\r\n    return 1\r\n").unwrap();
+    std::fs::write(
+        root.join("src/uni.rs"),
+        "fn gr\u{f6}\u{df}e() { /* \u{65e5}\u{672c}\u{8a9e} */ }\n",
+    )
+    .unwrap();
+    std::fs::write(root.join("src/empty.py"), "").unwrap();
+    std::fs::write(root.join("src/min.js"), format!("var a={}0;\n", "1,".repeat(50000))).unwrap();
+    #[cfg(unix)]
+    {
+        let _ = std::os::unix::fs::symlink(".", root.join("src/loop"));
+        let _ = std::os::unix::fs::symlink("/nonexistent", root.join("src/dangling.py"));
+    }
+    let store = Store::open(&root.join(".tinymem/index.db"), true).unwrap();
+    store.index(&root, &[], 2 * 1024 * 1024).unwrap();
+    let hit = &store.search("crlf_marker", &SearchOpts::default()).unwrap()[0];
+    assert_eq!(hit["path"], "src/crlf.py");
+    assert!(!store
+        .search("gr\u{f6}\u{df}e", &SearchOpts::default())
+        .unwrap()
+        .is_empty());
+    for q in [
+        "",
+        "   ",
+        "!!!",
+        "\"",
+        "*",
+        "AND OR NOT",
+        "NEAR(a b)",
+        &"a".repeat(5000),
+    ] {
+        store.search(q, &SearchOpts::default()).unwrap();
+    }
+    assert!(store.search("!!!", &SearchOpts::default()).unwrap().is_empty());
+    let _ = std::fs::remove_dir_all(root.parent().unwrap());
+}
+
+#[test]
 fn concurrent_writers_do_not_hit_database_locked() {
     let root = tmpdir("concurrent").join("proj");
     std::fs::create_dir_all(root.join("src")).unwrap();

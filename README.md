@@ -43,15 +43,18 @@ It ships as **two interchangeable implementations**, a Rust binary and a pure-Py
 **Rust** (single static binary, fastest):
 
 ```bash
-cargo install --path rust
+cargo install --git https://github.com/feralxr/tinymem
 ```
 
 **Python** (3.9+, standard library only; extras are optional):
 
 ```bash
-pip install ./python            # core
-pip install "./python[all]"     # + numpy (faster vector scan) and pypdf (PDF text)
+pip install "git+https://github.com/feralxr/tinymem#subdirectory=python"
+# optional: numpy (faster vector scan) and pypdf (PDF text)
+pip install "tinymem[all] @ git+https://github.com/feralxr/tinymem#subdirectory=python"
 ```
+
+From a local clone, use `cargo install --path rust` or `pip install ./python`.
 
 PDF text uses `pdftotext` (poppler) when it is on your `PATH`; otherwise the Rust build falls back to a built-in parser and the Python package to `pypdf`.
 

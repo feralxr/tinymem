@@ -95,6 +95,25 @@ class Engine(unittest.TestCase):
         self.assertNotIn("node_modules/x/junk.js", paths)
         self.assertNotIn("blob.bin", paths)
 
+    def test_awkward_inputs_do_not_crash(self):
+        src = self.root / "src"
+        (src / "crlf.py").write_bytes(b'def crlf_marker():\r\n    return 1\r\n')
+        (src / "uni.rs").write_text("fn gr\u00f6\u00dfe() { /* \u65e5\u672c\u8a9e */ }\n", encoding="utf-8")
+        (src / "empty.py").write_text("")
+        (src / "min.js").write_text("var a=" + "1," * 50000 + "0;\n")
+        if hasattr(os, "symlink"):
+            try:
+                os.symlink(".", src / "loop")
+                os.symlink("/nonexistent", src / "dangling.py")
+            except OSError:
+                pass
+        self.store.index(self.root)
+        self.assertEqual(self.store.search("crlf_marker")[0]["path"], "src/crlf.py")
+        self.assertTrue(self.store.search("gr\u00f6\u00dfe"))
+        for q in ["", "   ", "!!!", '"', "*", "AND OR NOT", "NEAR(a b)", "a" * 5000]:
+            self.assertIsInstance(self.store.search(q), list)
+        self.assertEqual(self.store.search("!!!"), [])
+
     def test_filters(self):
         self.store.index(self.root)
         self.assertEqual({r["path"] for r in self.store.search("release image", path="docs")}, {"docs/ops.md"})
