@@ -64,6 +64,9 @@ class Golden(unittest.TestCase):
             self.assertEqual(got, g["chunks"])
 
 
+METHOD_CASES = json.loads((pathlib.Path(__file__).resolve().parents[2] / "testdata" / "method_cases.json").read_text())
+
+
 class Engine(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
@@ -113,6 +116,10 @@ class Engine(unittest.TestCase):
         for q in ["", "   ", "!!!", '"', "*", "AND OR NOT", "NEAR(a b)", "a" * 5000]:
             self.assertIsInstance(self.store.search(q), list)
         self.assertEqual(self.store.search("!!!"), [])
+
+    def test_method_symbols(self):
+        for line, want in METHOD_CASES:
+            self.assertEqual(core.line_symbol(line), want, line)
 
     def test_filters(self):
         self.store.index(self.root)

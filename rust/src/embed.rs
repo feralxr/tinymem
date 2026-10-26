@@ -359,12 +359,118 @@ fn skip_group(line: &str, mut pos: usize, open: u8, close: u8) -> usize {
     n
 }
 
-/// The name declared by `line` (func/class/fn/struct/def/type/...), if any.
+const CONTROL: &[&str] = &[
+    "if",
+    "else",
+    "for",
+    "while",
+    "switch",
+    "catch",
+    "try",
+    "finally",
+    "return",
+    "do",
+    "new",
+    "throw",
+    "await",
+    "yield",
+    "typeof",
+    "delete",
+    "case",
+    "default",
+    "with",
+    "elif",
+    "match",
+    "loop",
+    "unsafe",
+    "go",
+    "defer",
+    "select",
+    "sizeof",
+    "using",
+    "lock",
+    "synchronized",
+    "fixed",
+    "foreach",
+    "when",
+    "guard",
+    "repeat",
+    "assert",
+    "in",
+    "of",
+    "constructor",
+];
+
+fn is_head_char(c: char) -> bool {
+    c.is_ascii() && (is_ident_byte(c as u8) || " <>[],.:&*".contains(c))
+}
+
+/// The name of a method/function whose signature is a single line ending in `{`.
+///
+/// Covers declarations without a leading keyword (JS/TS class methods, Java, C#, C, C++, PHP). Deliberately strict:
+/// the first parenthesis group must close on the line and be followed only by an optional return type, and
+/// control-flow keywords, calls on objects and callbacks never qualify.
+pub fn method_symbol(line: &str) -> Option<String> {
+    let s = line.trim();
+    let sb = s.as_bytes();
+    if !s.ends_with('{') || !is_ident_byte(sb[0]) || sb[0].is_ascii_digit() {
+        return None;
+    }
+    let p = s.find('(')?;
+    if p == 0 {
+        return None;
+    }
+    let end = skip_group(s, p, b'(', b')');
+    if end >= s.len() {
+        return None;
+    }
+    let body = s[end..s.len() - 1].trim();
+    if !body.is_empty()
+        && !["->", ":", "throws ", "const", "override", "final", "noexcept", "where "]
+            .iter()
+            .any(|x| body.starts_with(x))
+    {
+        return None;
+    }
+    let prefix = s[..p].trim_end();
+    let pb = prefix.as_bytes();
+    let mut j = pb.len();
+    while j > 0 && is_ident_byte(pb[j - 1]) {
+        j -= 1;
+    }
+    let name = &prefix[j..];
+    if name.is_empty() || name.as_bytes()[0].is_ascii_digit() || (j > 0 && pb[j - 1] == b'.') {
+        return None;
+    }
+    let head = &prefix[..j];
+    if !head.chars().all(is_head_char) {
+        return None;
+    }
+    let head_toks = ident_tokens(head);
+    if head_toks.len() > 6 {
+        return None;
+    }
+    let first = ident_tokens(s)[0].0;
+    if CONTROL.contains(&first) || CONTROL.contains(&name) || DECL.contains(&name) {
+        return None;
+    }
+    let indented = line.starts_with(' ') || line.starts_with('\t');
+    if head_toks.is_empty() && !indented && !s[p + 1..end - 1].trim().is_empty() {
+        return None; // unindented bare `name(args) {` is more likely a call than a declaration
+    }
+    Some(name.to_string())
+}
+
+/// The name declared by `line` (func/class/fn/struct/def/type/method/...), if any.
 pub fn line_symbol(line: &str) -> Option<String> {
     let s = line.trim();
     if s.is_empty() || ["//", "/*", "*", "#", "--", ";"].iter().any(|p| s.starts_with(p)) {
         return None;
     }
+    method_symbol(line).or_else(|| keyword_symbol(s))
+}
+
+fn keyword_symbol(s: &str) -> Option<String> {
     let toks = ident_tokens(s);
     for (idx, &(tok, _, b)) in toks.iter().enumerate() {
         if DECL.contains(&tok) {

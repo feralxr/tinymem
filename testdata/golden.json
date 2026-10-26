@@ -7381,6 +7381,11 @@
   },
   {
    "kind": "code",
+   "text": "  async checkDevEngines () {\n  usageError (prefix = '') {\n  constructor (npm) {\npublic static void main(String[] args) {\npublic List<String> getNames(int x) throws IOException {\nstatic int foo(int a) {\nint main(void) {\nmain() {\nfoo(a, b) {\n  render() {\nif (x) {\n  } else if (y) {\n} catch (e) {\n  it('does x', () => {\ndescribe('x', () => {\napp.get('/x', (req, res) => {\n  forEach(item => {\nfor (int i = 0; i < n; i++) {\nfunc (s *Server) Handle(x int) {\nfunc Map[T any](x []T) {\ngo func() {\ndefer func() {\npub fn new(x: u32) -> Self {\nfn foo<T: Into<String>>(x: T) {\npub(crate) fn bar(x: u8) {\n  public function save($x) {\ndef foo(x):\nclass Foo(Base):\nx := foo(a) {\n} while (x) {\n  setWorkspaces () {\nFoo::bar(int x) const {\nswitch (foo(x)) {\nreturn foo(x) {\n    .foo:not(.bar) {\n@media (min-width: 1px) {\nstatic void run() {\n  private async fetchUser(id: string): Promise<User> {\n  static get version () {",
+   "symbols": "checkDevEngines usageError main getNames foo render Handle Map new bar save setWorkspaces run fetchUser version check dev engines usage error get names set workspaces fetch user"
+  },
+  {
+   "kind": "code",
    "text": "export default class Foo extends Bar {\nexport async function loadData() {\nexport interface Props {\nconst handler = async () => {}",
    "symbols": "Foo loadData Props handler load data"
   },

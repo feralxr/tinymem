@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-const FORMAT: &str = "2";
+const FORMAT: &str = "3";
 const RRF_K: f64 = 60.0; // rank smoothing for the semantic list
 const RRF_K_LEX: f64 = 20.0; // rank smoothing for the keyword list
 const W_LEXICAL: f64 = 1.0;

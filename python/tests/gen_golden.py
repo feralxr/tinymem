@@ -20,10 +20,13 @@ WORDS = ["getUserName", "HTTPServer", "parseURL", "XMLHttpRequest", "utf8Decode"
 LINES = ["line %d" % i if i % 7 else "" for i in range(1, 200)]
 LINES2 = ["x" * 700, "y" * 700, "z" * 700, "", "tail"]
 
+METHOD_CASES = json.load(open(pathlib.Path(__file__).resolve().parents[2] / 'testdata' / 'method_cases.json'))
+
 CODE = {
     "go": "func ReadAll(r Reader) ([]byte, error) {\n// func commented()\nfunc (m *Mutex) Lock() {\ntype ServeMux struct {\n\treturn func(x int) {",
     "rust": "pub fn from_str<'a, T>(s: &'a str) -> Result<T>\n    pub(crate) async fn run(&self)\nimpl<T: Clone> Iterator for Worker<T> {\npub struct ShardedLock<T> {\nmacro_rules! bitflags {\npub const fn new() -> Self {\nstatic mut COUNTER: u32 = 0;\nextern \"C\" fn cb()",
     "py": "def run(args, *, capture_output=False):\n    async def fetch(self):\nclass RotatingFileHandler(BaseRotatingHandler):\nx = 1  # def not_this\n@dataclass",
+    "methods": "\n".join(l for l, _ in METHOD_CASES),
     "js": "export default class Foo extends Bar {\nexport async function loadData() {\nexport interface Props {\nconst handler = async () => {}",
 }
 DOC = "# Getting Started\n\ntext\n## Install the CLI\nnot # a heading"

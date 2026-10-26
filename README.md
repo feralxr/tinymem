@@ -114,7 +114,7 @@ $ tinymem search "format a time value" -k 10 --json --budget 800    #  7 results
 
 | | |
 |---|---|
-| **Definitions first** | Every chunk's declared names (`func`, `class`, `fn`, `struct`, `def`, `type`, doc headings) are indexed in a heavily weighted field, so `ParseDuration` finds `func ParseDuration`, not the forty files that call it. |
+| **Definitions first** | Every chunk's declared names (`func`, `class`, `fn`, `struct`, `def`, `type`, class methods, doc headings) are indexed in a heavily weighted field, so `ParseDuration` finds `func ParseDuration`, not the forty files that call it. |
 | **Tests and examples don't drown the answer** | Matches in `*_test.go`, `tests/`, `examples/`, fixtures and vendored code are demoted, unless your query asks for tests. |
 | **Identifier-aware** | `getUserName` is found by `user name`, `get_user` and `getusername`. `SHA-256` matches `sha256`. |
 | **Hybrid ranking** | SQLite FTS5 (BM25) plus a vector pass, fused with a keyword-led weighting that was tuned against a benchmark rather than guessed. |
@@ -266,7 +266,7 @@ Both implementations are run on symlink loops and dangling symlinks, CRLF files,
 ## Limitations
 
 - One index covers one project root.
-- Symbol extraction is a fast line-based heuristic that finds `func`, `fn`, `def`, `class`, `struct`, `enum`, `trait`, `interface`, `type`, `function` and similar declarations (Go, Rust, Python, JavaScript/TypeScript, Ruby, and classes and types in Java, C# and C++). It is not a full parser: methods declared without a keyword, such as Java or C method signatures, are not extracted, though the keyword search still finds them.
+- Symbol extraction is a fast line-based heuristic, not a parser. It finds `func`, `fn`, `def`, `class`, `struct`, `enum`, `trait`, `interface`, `type`, `function` and similar declarations (Go, Rust, Python, JavaScript/TypeScript, Ruby, and classes and types in Java, C# and C++), plus methods and functions whose signature sits on one line ending in `{` (JS/TS class methods and getters, Java, C#, C, C++, PHP). Signatures split across several lines, or with the brace on the next line, are not recognised as symbols, though the keyword search still finds them.
 - Scanned PDFs without a text layer are not OCR'd.
 - The vector scan is linear in the number of chunks. It stays comfortable to a few hundred thousand chunks.
 

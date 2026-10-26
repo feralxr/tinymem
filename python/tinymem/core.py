@@ -28,7 +28,7 @@ except ImportError:  # pragma: no cover - exercised when numpy is absent
 __version__ = "0.1.0"
 
 EMBEDDER = "hash1024-v1"
-FORMAT = "2"
+FORMAT = "3"
 DIM = 1024
 RRF_K = 60  # rank smoothing for the semantic list
 RRF_K_LEX = 20  # rank smoothing for the keyword list (smaller = top ranks matter more)
@@ -125,11 +125,63 @@ def _skip_group(line: str, pos: int, open_c: str, close_c: str) -> int:
     return n
 
 
+_CONTROL = frozenset(
+    "if else for while switch catch try finally return do new throw await yield typeof delete case default with elif "
+    "match loop unsafe go defer select sizeof using lock synchronized fixed foreach when guard repeat assert in of "
+    "constructor".split()
+)
+_HEAD_CHARS = _IDENT | frozenset(" <>[],.:&*")
+
+
+def method_symbol(line: str):
+    """The name of a method/function whose signature is a single line ending in ``{``.
+
+    Covers declarations without a leading keyword (JS/TS class methods, Java, C#, C, C++, PHP). Deliberately strict:
+    the first parenthesis group must close on the line and be followed only by an optional return type, and
+    control-flow keywords, calls on objects and callbacks never qualify.
+    """
+    s = line.strip()
+    if not s.endswith("{") or s[0] not in _IDENT or s[0] in _DIGITS:
+        return None
+    p = s.find("(")
+    if p <= 0:
+        return None
+    end = _skip_group(s, p, "(", ")")
+    if end >= len(s):
+        return None
+    body = s[end:-1].strip()
+    if body and not body.startswith((":", "->", "throws ", "const", "override", "final", "noexcept", "where ")):
+        return None
+    prefix = s[:p].rstrip()
+    j = len(prefix)
+    while j > 0 and prefix[j - 1] in _IDENT:
+        j -= 1
+    name = prefix[j:]
+    if not name or name[0] in _DIGITS or (j > 0 and prefix[j - 1] == "."):
+        return None
+    head = prefix[:j]
+    if any(c not in _HEAD_CHARS for c in head):
+        return None
+    head_toks = _ident_tokens(head)
+    if len(head_toks) > 6:
+        return None
+    first = _ident_tokens(s)[0][0]
+    if first in _CONTROL or name in _CONTROL or name in _DECL:
+        return None
+    if not head_toks and line[:1] not in (" ", "\t") and s[p + 1 : end - 1].strip():
+        return None  # unindented bare ``name(args) {`` is more likely a call than a declaration
+    return name
+
+
 def line_symbol(line: str):
-    """The name declared by *line* (func/class/fn/struct/def/type/...), or None."""
+    """The name declared by *line* (func/class/fn/struct/def/type/method/...), or None."""
     s = line.strip()
     if not s or s.startswith(("//", "/*", "*", "#", "--", ";")):
         return None
+    return method_symbol(line) or _keyword_symbol(s)
+
+
+def _keyword_symbol(s: str):
     toks = _ident_tokens(s)
     for idx, (tok, a, b) in enumerate(toks):
         if tok in _DECL:

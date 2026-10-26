@@ -269,6 +269,16 @@ fn awkward_inputs_do_not_crash() {
 }
 
 #[test]
+fn method_symbols_follow_the_shared_cases() {
+    let cases: Vec<(String, Option<String>)> =
+        serde_json::from_str(include_str!("../../testdata/method_cases.json")).unwrap();
+    assert!(cases.len() > 30);
+    for (line, want) in cases {
+        assert_eq!(crate::embed::line_symbol(&line), want, "{}", line);
+    }
+}
+
+#[test]
 fn concurrent_writers_do_not_hit_database_locked() {
     let root = tmpdir("concurrent").join("proj");
     std::fs::create_dir_all(root.join("src")).unwrap();

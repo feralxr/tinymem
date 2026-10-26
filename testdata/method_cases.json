@@ -1,0 +1,158 @@
+[
+ [
+  "  async checkDevEngines () {",
+  "checkDevEngines"
+ ],
+ [
+  "  usageError (prefix = '') {",
+  "usageError"
+ ],
+ [
+  "  constructor (npm) {",
+  null
+ ],
+ [
+  "public static void main(String[] args) {",
+  "main"
+ ],
+ [
+  "public List<String> getNames(int x) throws IOException {",
+  "getNames"
+ ],
+ [
+  "static int foo(int a) {",
+  "foo"
+ ],
+ [
+  "int main(void) {",
+  "main"
+ ],
+ [
+  "main() {",
+  "main"
+ ],
+ [
+  "foo(a, b) {",
+  null
+ ],
+ [
+  "  render() {",
+  "render"
+ ],
+ [
+  "if (x) {",
+  null
+ ],
+ [
+  "  } else if (y) {",
+  null
+ ],
+ [
+  "} catch (e) {",
+  null
+ ],
+ [
+  "  it('does x', () => {",
+  null
+ ],
+ [
+  "describe('x', () => {",
+  null
+ ],
+ [
+  "app.get('/x', (req, res) => {",
+  null
+ ],
+ [
+  "  forEach(item => {",
+  null
+ ],
+ [
+  "for (int i = 0; i < n; i++) {",
+  null
+ ],
+ [
+  "func (s *Server) Handle(x int) {",
+  "Handle"
+ ],
+ [
+  "func Map[T any](x []T) {",
+  "Map"
+ ],
+ [
+  "go func() {",
+  null
+ ],
+ [
+  "defer func() {",
+  null
+ ],
+ [
+  "pub fn new(x: u32) -> Self {",
+  "new"
+ ],
+ [
+  "fn foo<T: Into<String>>(x: T) {",
+  "foo"
+ ],
+ [
+  "pub(crate) fn bar(x: u8) {",
+  "bar"
+ ],
+ [
+  "  public function save($x) {",
+  "save"
+ ],
+ [
+  "def foo(x):",
+  "foo"
+ ],
+ [
+  "class Foo(Base):",
+  "Foo"
+ ],
+ [
+  "x := foo(a) {",
+  null
+ ],
+ [
+  "} while (x) {",
+  null
+ ],
+ [
+  "  setWorkspaces () {",
+  "setWorkspaces"
+ ],
+ [
+  "Foo::bar(int x) const {",
+  "bar"
+ ],
+ [
+  "switch (foo(x)) {",
+  null
+ ],
+ [
+  "return foo(x) {",
+  null
+ ],
+ [
+  "    .foo:not(.bar) {",
+  null
+ ],
+ [
+  "@media (min-width: 1px) {",
+  null
+ ],
+ [
+  "static void run() {",
+  "run"
+ ],
+ [
+  "  private async fetchUser(id: string): Promise<User> {",
+  "fetchUser"
+ ],
+ [
+  "  static get version () {",
+  "version"
+ ]
+]
