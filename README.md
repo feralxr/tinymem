@@ -26,6 +26,90 @@ Restart your agent. It now has `search`, `remember`, `forget`, `reindex` and `st
 
 It ships as **two interchangeable implementations**, a Rust binary and a pure-Python package. They read and write the same index and return identical results, so you can index with one and search with the other.
 
+## See it work
+
+Everything below is real output, from indexes of the Go standard library (8,895 files, 59,561 chunks), CPython's standard library and 125 Rust crates.
+
+**An exact identifier lands on the definition**, not on the callers. The callers still follow, ranked below it:
+
+```console
+$ tinymem search ParseDuration -k 3 --lines 4
+ 1. time/format.go:1571-1626  [code]  0.0502
+    1613      "h":  uint64(Hour),
+    1614  }
+    1615  
+    1616  // ParseDuration parses a duration string.
+
+ 2. cmd/trace/tasks.go:329-371  [code]  0.0374
+     350              return !task.Complete()
+     351          })
+     352      }
+     353      if lat, err := time.ParseDuration(r.FormValue("latmin")); err == nil {
+
+ 3. flag/flag.go:939-966  [code]  0.0371
+     941  
+     942  // Duration defines a time.Duration flag with specified name, default value, and usage string.
+     943  // The return value is the address of a time.Duration variable that stores the value of the flag.
+     944  // The flag accepts a value acceptable to time.ParseDuration.
+```
+
+**A plain-English question finds the right function**, with no identifier in the query:
+
+```console
+$ tinymem search "walk a directory tree" -k 3 --lines 3
+ 1. path/filepath/path.go:377-407  [code]  0.0449
+     379  
+     380  // WalkDir walks the file tree rooted at root, calling fn for each file or
+     381  // directory in the tree, including root.
+
+ 2. path/filepath/path.go:285-329  [code]  0.0432
+     289  // will not walk into that directory. The function can decide how to
+     290  // handle that error; as described earlier, returning the error will
+     291  // cause Walk to stop walking the entire tree.
+
+ 3. path/filepath/path.go:405-458  [code]  0.0416
+     407  
+     408  // Walk walks the file tree rooted at root, calling fn for each file or
+     409  // directory in the tree, including root.
+```
+
+Every hit is a file, a line range and a snippet, so the agent can open exactly that range instead of reading whole files.
+
+**Memory sits in the same index as your code.** Save a decision once, find it by meaning later (the note ranks first, code follows):
+
+```console
+$ tinymem remember "We chose Postgres over MySQL for billing; need row-level locking" --tag decision
+d3881034
+$ tinymem search "which database did we pick for billing" -k 2 --lines 2
+ 1. memory://d3881034:1-2  [memory]  0.0509
+       1  We chose Postgres over MySQL for billing; need row-level locking
+       2  tags: decision
+```
+
+**Tests don't crowd out the answer, unless you ask for them.** On the Go standard library:
+
+```console
+$ tinymem search "Duration String" -k 4          # flag/flag.go, flag/flag.go, flag/flag.go, testing/benchmark.go
+$ tinymem search "Duration String test" -k 3     # log/slog/.../benchmarks_test.go, ..., time/time_test.go
+```
+
+**Setup is one command** and prints exactly what it changed:
+
+```console
+$ tinymem init
+indexed /home/me/project: 40 files, 342 chunks
+created   .mcp.json
+created   CLAUDE.md
+Restart your agent so it picks up the new MCP server.
+```
+
+**Output is capped so it can't flood the context window.** Same query, same index:
+
+```console
+$ tinymem search "format a time value" -k 10 --json                 # 10 results, 3,590 chars
+$ tinymem search "format a time value" -k 10 --json --budget 800    #  7 results, 2,602 chars
+```
+
 ## Why it works well on code
 
 | | |
@@ -140,7 +224,27 @@ Measured, not asserted. [`eval/`](eval) holds 66 queries over three real codebas
 
 By corpus: Go 73% / Python 85% / Rust 50% at hit@1 (MRR 0.79 / 0.90 / 0.65). The Rust corpus is hardest because crate names and re-exports spread an answer across several near-identical files.
 
-**Speed** (Go standard library, 59,561 chunks): indexing takes about 22 s with the Rust build and 78 s with Python. In a running MCP server a warm search has a median of **39 ms** (p95 80 ms). A one-shot CLI call is slower, around 200 ms, because it loads the vectors from disk every time; `--mode lexical` skips that and answers in about 40 ms.
+### Speed and size
+
+Measured on a small 2-core cloud VM (the `rust` and `py` columns are the Rust binary and the Python package, the latter with numpy installed):
+
+| Corpus | Chunks | Index time, Rust | Index time, Python | Index size |
+|---|---|---|---|---|
+| CPython stdlib (53 MB) | 8,681 | 1.7 s | 12.1 s | 52 MB |
+| 125 Rust crates | ~49,500 | 11.6 s | 76.5 s | ~320 MB |
+| Go standard library (140 MB) | 59,561 | 17.8 s | ~78 s | 355 MB |
+
+Re-indexing only touches changed files, so after the first run it is near-instant.
+
+| Search, Go standard library index | Rust | Python |
+|---|---|---|
+| Inside the MCP server, warm: median | **28 ms** | 54 ms |
+| Inside the MCP server, warm: p95 | 95 ms | 103 ms |
+| First search after the server starts | 502 ms | 664 ms |
+| One-shot CLI call, hybrid | ~175 ms | ~500 ms |
+| One-shot CLI call, `--mode lexical` | ~46 ms | ~200 ms |
+
+The MCP figures are 49 searches over the real protocol, mixing identifiers and plain-English queries. A one-shot CLI call is slower because it loads the vectors from disk each time; a long-running server pays that once. The index costs disk: expect a few times the size of the source for code-heavy trees, because it stores the text, a keyword index and a 1 KB vector per chunk.
 
 **Honest notes on the vector half.** The built-in embedder is a deterministic hashing model over words, sub-words and word pairs, so it matches wording, not meaning: it will not connect "car" with "automobile". On this benchmark it adds almost nothing over keyword search on average (MRR 0.790 against 0.787). It earns its place as a safety net for queries whose keywords miss entirely, and it costs no downloads.
 
@@ -154,6 +258,10 @@ The benchmark is small, so read the numbers as indicative rather than definitive
 4. **Search** runs BM25 (path and symbols weighted up) and a cosine scan, fuses the two rankings with a keyword-led reciprocal rank fusion, demotes tests and examples, groups by file and trims to your token budget.
 
 The exact on-disk layout, tokenisation, symbol extraction and ranking are specified in [docs/FORMAT.md](docs/FORMAT.md). That specification is what keeps the two implementations byte-compatible, and shared golden fixtures enforce it.
+
+## Tested against awkward input
+
+Both implementations are run on symlink loops and dangling symlinks, CRLF files, a 400,000-element single-line minified file, random bytes saved as `.py`, non-ASCII file names and text (`größe`, `日本語`), empty files, and queries that are empty, punctuation-only, FTS operators (`NEAR(a b)`, `AND OR NOT`) or 5,000 characters long. None crash, and the two return the same results. These cases are in the test suites, which run on Linux, macOS and Windows in CI. Concurrent writers are covered too: the index uses SQLite WAL with immediate write transactions, so two agents sharing a project do not hit `database is locked`.
 
 ## Limitations
 
