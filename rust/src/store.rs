@@ -221,7 +221,8 @@ impl Default for SearchOpts<'_> {
 struct VecCache {
     generation: Option<String>,
     ids: Vec<i64>,
-    paths: Vec<String>,
+    /// Loaded on demand: only `--path` filtering needs them.
+    paths: Option<Vec<String>>,
     kinds: Vec<String>,
     mat: Vec<i8>,
 }
@@ -554,38 +555,47 @@ impl Store {
     }
 
     // ---- search ---------------------------------------------------------
-    fn with_vectors<T>(&self, f: impl FnOnce(&VecCache) -> T) -> Result<T> {
+    fn with_vectors<T>(&self, need_paths: bool, f: impl FnOnce(&VecCache) -> T) -> Result<T> {
         let generation = self.meta("generation")?;
         let stale = match &*self.cache.borrow() {
             Some(c) => c.generation != generation,
             None => true,
         };
         if stale {
-            let mut ids = Vec::new();
-            let mut paths = Vec::new();
             let mut kinds = Vec::new();
-            let mut mat: Vec<i8> = Vec::new();
-            let mut st = self
-                .conn
-                .prepare("SELECT id, path, kind, vec FROM chunks ORDER BY id")?;
+            let total: i64 = self.conn.query_row("SELECT count(*) FROM chunks", [], |r| r.get(0))?;
+            let mut ids = Vec::with_capacity(total as usize);
+            let mut mat: Vec<i8> = Vec::with_capacity(total as usize * DIM);
+            let mut st = self.conn.prepare("SELECT id, kind, vec FROM chunks ORDER BY id")?;
             let mut rows = st.query([])?;
             while let Some(r) = rows.next()? {
                 ids.push(r.get::<_, i64>(0)?);
-                paths.push(r.get::<_, String>(1)?);
-                kinds.push(r.get::<_, String>(2)?);
-                let blob: Vec<u8> = r.get(3)?;
+                kinds.push(r.get::<_, String>(1)?);
+                let blob = r.get_ref(2)?.as_blob()?;
                 if blob.len() != DIM {
                     bail!("corrupt vector in index");
                 }
-                mat.extend(blob.into_iter().map(|b| b as i8));
+                mat.extend(blob.iter().map(|&b| b as i8));
             }
             *self.cache.borrow_mut() = Some(VecCache {
                 generation,
                 ids,
-                paths,
+                paths: None,
                 kinds,
                 mat,
             });
+        }
+        if need_paths {
+            let missing = matches!(&*self.cache.borrow(), Some(c) if c.paths.is_none());
+            if missing {
+                let mut st = self.conn.prepare("SELECT path FROM chunks ORDER BY id")?;
+                let paths = st
+                    .query_map([], |r| r.get::<_, String>(0))?
+                    .collect::<Result<Vec<_>, _>>()?;
+                if let Some(c) = self.cache.borrow_mut().as_mut() {
+                    c.paths = Some(paths);
+                }
+            }
         }
         let guard = self.cache.borrow();
         Ok(f(guard.as_ref().unwrap()))
@@ -620,14 +630,14 @@ impl Store {
         if qv.iter().all(|&v| v == 0) {
             return Ok(vec![]);
         }
-        self.with_vectors(|c| {
+        self.with_vectors(glob.is_some(), |c| {
             let mut scored: Vec<(f32, usize)> = Vec::new();
             for (i, row) in c.mat.as_chunks::<DIM>().0.iter().enumerate() {
                 if !kinds.is_empty() && !kinds.iter().any(|k| *k == c.kinds[i]) {
                     continue;
                 }
                 if let Some(g) = glob {
-                    if !glob_match(g, &c.paths[i]) {
+                    if !glob_match(g, &c.paths.as_ref().unwrap()[i]) {
                         continue;
                     }
                 }
