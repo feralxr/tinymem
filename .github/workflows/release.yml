@@ -44,6 +44,8 @@ jobs:
           generate_release_notes: true
 
   pypi:
+    # Off until a PyPI Trusted Publisher is configured: set the repository variable PUBLISH_PYPI to "true".
+    if: vars.PUBLISH_PYPI == 'true'
     needs: verify
     runs-on: ubuntu-latest
     environment: pypi
