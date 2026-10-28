@@ -1,22 +1,51 @@
 name: Release
+
+# A release is published when `rust/Cargo.toml` carries a version that has no tag yet, or when a `v*` tag is pushed.
 on:
   push:
+    branches: [main]
+    paths:
+      - rust/Cargo.toml
+      - .github/workflows/release.yml
     tags: ["v*"]
 
 permissions:
   contents: read
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.v.outputs.release }}
+      tag: ${{ steps.v.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        shell: bash
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            tag="${GITHUB_REF_NAME}"
+          else
+            tag="v$(grep -m1 '^version' rust/Cargo.toml | cut -d'"' -f2)"
+          fi
+          if [ "${GITHUB_REF_TYPE}" != "tag" ] && git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
+            echo "${tag} already exists; nothing to release"
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
   verify:
+    needs: prepare
+    if: needs.prepare.outputs.release == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: python3 scripts/check_versions.py "${GITHUB_REF_NAME}"
+      - run: python3 scripts/check_versions.py "${{ needs.prepare.outputs.tag }}"
 
   binaries:
-    needs: verify
-    permissions:
-      contents: write
+    needs: [prepare, verify]
     strategy:
       matrix:
         include:
@@ -30,23 +59,44 @@ jobs:
       - run: cargo build --release --manifest-path rust/Cargo.toml
       - name: Package
         shell: bash
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
         run: |
           mkdir dist
           cp "rust/target/release/${{ matrix.exe }}" LICENSE README.md dist/
           if [ "${{ runner.os }}" = "Windows" ]; then
-            7z a "tinymem-${GITHUB_REF_NAME}-${{ matrix.name }}.zip" ./dist/*
+            7z a "tinymem-${TAG}-${{ matrix.name }}.zip" ./dist/*
           else
-            tar -czf "tinymem-${GITHUB_REF_NAME}-${{ matrix.name }}.tar.gz" -C dist .
+            tar -czf "tinymem-${TAG}-${{ matrix.name }}.tar.gz" -C dist .
           fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tinymem-${{ matrix.name }}
+          path: tinymem-*.*
+
+  release:
+    needs: [prepare, binaries]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        run: cd dist && sha256sum tinymem-* > SHA256SUMS
       - uses: softprops/action-gh-release@v2
         with:
-          files: tinymem-*.*
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          files: dist/*
           generate_release_notes: true
 
   pypi:
     # Off until a PyPI Trusted Publisher is configured: set the repository variable PUBLISH_PYPI to "true".
-    if: vars.PUBLISH_PYPI == 'true'
-    needs: verify
+    if: vars.PUBLISH_PYPI == 'true' && needs.prepare.outputs.release == 'true'
+    needs: [prepare, verify]
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
