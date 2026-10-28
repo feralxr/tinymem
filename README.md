@@ -124,7 +124,15 @@ $ tinymem search "format a time value" -k 10 --json --budget 800    #  7 results
 
 ## Install
 
-**Rust** (single static binary, fastest):
+**Prebuilt binary** (no toolchain needed): download the archive for your platform from the [latest release](https://github.com/feralxr/tinymem/releases/latest) (Linux x86_64, macOS arm64, Windows x86_64), unpack it and put `tinymem` on your `PATH`. Each release includes a `SHA256SUMS` file.
+
+```bash
+tar xzf tinymem-v0.1.0-linux-x86_64.tar.gz
+sudo mv tinymem /usr/local/bin/
+sha256sum -c SHA256SUMS --ignore-missing    # optional: verify the download
+```
+
+**Rust** (build from source, single static binary, fastest):
 
 ```bash
 cargo install --git https://github.com/feralxr/tinymem
