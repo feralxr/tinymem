@@ -279,6 +279,16 @@ fn method_symbols_follow_the_shared_cases() {
 }
 
 #[test]
+fn multiline_signatures_follow_the_shared_cases() {
+    let cases: Vec<(String, Vec<String>)> =
+        serde_json::from_str(include_str!("../../testdata/multiline_cases.json")).unwrap();
+    assert!(cases.len() > 15);
+    for (text, want) in cases {
+        assert_eq!(crate::embed::declared_names(&text), want, "{}", text);
+    }
+}
+
+#[test]
 fn concurrent_writers_do_not_hit_database_locked() {
     let root = tmpdir("concurrent").join("proj");
     std::fs::create_dir_all(root.join("src")).unwrap();

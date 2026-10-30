@@ -28,7 +28,7 @@ except ImportError:  # pragma: no cover - exercised when numpy is absent
 __version__ = "0.1.0"
 
 EMBEDDER = "hash1024-v1"
-FORMAT = "3"
+FORMAT = "4"
 DIM = 1024
 RRF_K = 60  # rank smoothing for the semantic list
 RRF_K_LEX = 20  # rank smoothing for the keyword list (smaller = top ranks matter more)
@@ -133,14 +133,26 @@ _CONTROL = frozenset(
 _HEAD_CHARS = _IDENT | frozenset(" <>[],.:&*")
 
 
-def method_symbol(line: str):
+def _strip_annotations(s: str) -> str:
+    """Drop leading ``@Name`` / ``@Name(...)`` annotations (Java, C#-style attributes on the same line)."""
+    while s.startswith("@"):
+        i = 1
+        while i < len(s) and (s[i] in _IDENT or s[i] == "."):
+            i += 1
+        if i == 1:
+            return s
+        s = s[_skip_group(s, i, "(", ")") :].lstrip()
+    return s
+
+
+def method_symbol(line: str, allow_bare: bool = False):
     """The name of a method/function whose signature is a single line ending in ``{``.
 
     Covers declarations without a leading keyword (JS/TS class methods, Java, C#, C, C++, PHP). Deliberately strict:
     the first parenthesis group must close on the line and be followed only by an optional return type, and
     control-flow keywords, calls on objects and callbacks never qualify.
     """
-    s = line.strip()
+    s = _strip_annotations(line.strip())
     if not s.endswith("{") or s[0] not in _IDENT or s[0] in _DIGITS:
         return None
     p = s.find("(")
@@ -168,7 +180,7 @@ def method_symbol(line: str):
     first = _ident_tokens(s)[0][0]
     if first in _CONTROL or name in _CONTROL or name in _DECL:
         return None
-    if not head_toks and line[:1] not in (" ", "\t") and s[p + 1 : end - 1].strip():
+    if not allow_bare and not head_toks and line[:1] not in (" ", "\t") and s[p + 1 : end - 1].strip():
         return None  # unindented bare ``name(args) {`` is more likely a call than a declaration
     return name
 
@@ -202,10 +214,64 @@ def _keyword_symbol(s: str):
                 rest = rest[1:]
             if not rest or rest[0][0] in _DECL or rest[0][0] in _MODIFIERS:
                 return None
+            if tok in ("static", "const") and rest[0][0] in _C_TYPES:
+                return None  # ``static int`` is the start of a C declaration, not a name
             return rest[0][0]
         if tok not in _MODIFIERS:
             return None
     return None
+
+
+_C_TYPES = frozenset("int long short char void float double signed unsigned bool boolean byte auto".split())
+_COMMENT_STARTS = ("//", "/*", "*", "#", "--", ";")
+_MAX_SIG_LINES = 8
+
+
+def _multiline_symbol(lines, i):
+    """A method whose signature spans several lines, or whose ``{`` sits alone on the next line."""
+    raw = lines[i]
+    s = _strip_annotations(raw.strip())
+    if not s or s[0] not in _IDENT or s[0] in _DIGITS or "(" not in s or s.endswith((";", "}")):
+        return None
+    joined, j = s, i
+    depth = joined.count("(") - joined.count(")")
+    while depth > 0 and j - i < _MAX_SIG_LINES and j + 1 < len(lines):
+        j += 1
+        t = lines[j].strip()
+        if not t or t.startswith(_COMMENT_STARTS):
+            continue
+        joined += " " + t
+        depth = joined.count("(") - joined.count(")")
+    if depth != 0:
+        return None
+    indent = raw[:1] if raw[:1] in (" ", "\t") else ""
+    if joined.endswith("{"):
+        return method_symbol(indent + joined) if j > i else None
+    k = j + 1
+    while k < len(lines) and not lines[k].strip():
+        k += 1
+    if k < len(lines) and lines[k].strip() == "{":
+        return method_symbol(indent + joined + " {", allow_bare=True)
+    return None
+
+
+def declared_names(text: str) -> list:
+    """Distinct declared names of a code chunk, in order (at most MAX_SYMBOLS)."""
+    names: list = []
+    seen: set = set()
+    lines = text.split("\n")
+    for i, ln in enumerate(lines):
+        name = line_symbol(ln)
+        if name is None:
+            t = ln.strip()
+            if t and not t.startswith(_COMMENT_STARTS):
+                name = _multiline_symbol(lines, i)
+        if name and name.lower() not in seen:
+            seen.add(name.lower())
+            names.append(name)
+        if len(names) >= MAX_SYMBOLS:
+            break
+    return names
 
 
 def symbols_of(kind: str, text: str) -> str:
@@ -221,13 +287,7 @@ def symbols_of(kind: str, text: str) -> str:
                         seen.add(tok.lower())
                         names.append(tok)
     elif kind == "code":
-        for ln in text.split("\n"):
-            name = line_symbol(ln)
-            if name and name.lower() not in seen:
-                seen.add(name.lower())
-                names.append(name)
-            if len(names) >= MAX_SYMBOLS:
-                break
+        names = declared_names(text)
     if not names:
         return ""
     joined = " ".join(names)

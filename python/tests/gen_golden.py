@@ -27,6 +27,7 @@ CODE = {
     "rust": "pub fn from_str<'a, T>(s: &'a str) -> Result<T>\n    pub(crate) async fn run(&self)\nimpl<T: Clone> Iterator for Worker<T> {\npub struct ShardedLock<T> {\nmacro_rules! bitflags {\npub const fn new() -> Self {\nstatic mut COUNTER: u32 = 0;\nextern \"C\" fn cb()",
     "py": "def run(args, *, capture_output=False):\n    async def fetch(self):\nclass RotatingFileHandler(BaseRotatingHandler):\nx = 1  # def not_this\n@dataclass",
     "methods": "\n".join(l for l, _ in METHOD_CASES),
+    "multiline": "\n\n".join(c[0] for c in json.load(open(pathlib.Path(__file__).resolve().parents[2] / "testdata" / "multiline_cases.json"))),
     "js": "export default class Foo extends Bar {\nexport async function loadData() {\nexport interface Props {\nconst handler = async () => {}",
 }
 DOC = "# Getting Started\n\ntext\n## Install the CLI\nnot # a heading"

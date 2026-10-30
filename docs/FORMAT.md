@@ -1,4 +1,4 @@
-# Index format (format `3`, embedder `hash1024-v1`)
+# Index format (format `4`, embedder `hash1024-v1`)
 
 Both implementations produce and consume this format. `testdata/golden.json` pins the behaviour below.
 
@@ -17,7 +17,7 @@ chunks_fts USING fts5(text, terms, path, symbols, tokenize='porter unicode61 rem
 
 `chunks_fts.rowid = chunks.id`. `kind` is one of `code`, `doc`, `pdf`, `memory`. Memories use `path = "memory://<8 hex>"`.
 `meta.generation` is incremented on every change; readers use it to invalidate in-memory vector caches.
-`meta.embedder` must equal `hash1024-v1` and `meta.format` must equal `3`; other values are rejected with a message asking the user to delete `.tinymem/` and re-index.
+`meta.embedder` must equal `hash1024-v1` and `meta.format` must equal `4`; other values are rejected with a message asking the user to delete `.tinymem/` and re-index.
 
 ## Tokenisation
 
@@ -45,7 +45,9 @@ Lines are split on `\n` (CRLF and CR normalised), each clipped to 2,000 characte
 
 *Method rule* (declarations without a leading keyword: JS/TS class methods and getters, Java, C#, C, C++, PHP). The trimmed line must end with `{` and start with an identifier character that is not a digit. Let `p` be the first `(`; its group must close on the same line, and what follows the closing `)` up to the final `{` must be empty or start with `:`, `->`, `throws `, `const`, `override`, `final`, `noexcept` or `where `. The name is the identifier run that ends immediately before `(` (it must not follow a `.`). Everything before the name (the *head*) may contain only ASCII identifier characters, spaces and `<>[],.:&*`, and at most 6 identifier runs. The line is rejected if its first identifier run, or the name, is a *control* word (`if else for while switch catch try finally return do new throw await yield typeof delete case default with elif match loop unsafe go defer select sizeof using lock synchronized fixed foreach when guard repeat assert in of constructor`), or if the name is a declaration keyword. A bare `name(args) {` with an empty head, no leading space or tab on the original line and non-empty parameters is rejected (more likely a call). Otherwise the name is the symbol.
 
-*Keyword rule.* Take the ASCII identifier runs `[A-Za-z0-9_]+`. Scan them left to right: a run in the *modifier* set (`pub crate super in self async unsafe extern export default abstract final public private protected internal static override virtual sealed partial inline declare readonly open data C`) is skipped; a run in the *declaration* set (`func fn def class struct enum trait interface type mod module const static union namespace protocol impl macro_rules record object function`) starts a declaration; any other run ends the scan with no symbol. `const` or `static` directly followed by another declaration keyword is skipped (`const fn`). After `func` a parenthesised receiver is skipped; after `impl` a `<...>` group is skipped and, if a later run is `for`, the name is the run after it. Leading `mut ref self dyn` are dropped. The symbol is the next run unless it is itself a declaration or modifier keyword. At most 64 distinct symbols (case-insensitive) are kept per chunk.
+Leading annotations (`@Name` or `@Name(...)`, repeated) are stripped before the method rule is applied. The rule also covers signatures spread over several lines. If a line starts with an identifier character (after annotations), contains `(`, does not end in `;` or `}`, and its parentheses are unbalanced, the following non-blank, non-comment lines are appended (separated by one space, at most 8 lines) until they balance. When the joined text ends in `{`, or the next non-blank line after it is exactly `{`, the method rule is applied to the joined text (in the second case with a `{` appended, and the bare-name restriction lifted). A line that already matched on its own is not re-examined.
+
+*Keyword rule.* Take the ASCII identifier runs `[A-Za-z0-9_]+`. Scan them left to right: a run in the *modifier* set (`pub crate super in self async unsafe extern export default abstract final public private protected internal static override virtual sealed partial inline declare readonly open data C`) is skipped; a run in the *declaration* set (`func fn def class struct enum trait interface type mod module const static union namespace protocol impl macro_rules record object function`) starts a declaration; any other run ends the scan with no symbol. `const` or `static` directly followed by another declaration keyword is skipped (`const fn`). After `func` a parenthesised receiver is skipped; after `impl` a `<...>` group is skipped and, if a later run is `for`, the name is the run after it. Leading `mut ref self dyn` are dropped. The symbol is the next run unless it is itself a declaration or modifier keyword, or, after `static` or `const`, one of the C type words `int long short char void float double signed unsigned bool boolean byte auto`. At most 64 distinct symbols (case-insensitive) are kept per chunk.
 
 *Doc chunks.* Every identifier run on lines that start with `#` (after leading whitespace) is a symbol.
 

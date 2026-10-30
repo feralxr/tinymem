@@ -410,8 +410,8 @@ fn is_head_char(c: char) -> bool {
 /// Covers declarations without a leading keyword (JS/TS class methods, Java, C#, C, C++, PHP). Deliberately strict:
 /// the first parenthesis group must close on the line and be followed only by an optional return type, and
 /// control-flow keywords, calls on objects and callbacks never qualify.
-pub fn method_symbol(line: &str) -> Option<String> {
-    let s = line.trim();
+pub fn method_symbol(line: &str, allow_bare: bool) -> Option<String> {
+    let s = strip_annotations(line.trim());
     let sb = s.as_bytes();
     if !s.ends_with('{') || !is_ident_byte(sb[0]) || sb[0].is_ascii_digit() {
         return None;
@@ -455,7 +455,7 @@ pub fn method_symbol(line: &str) -> Option<String> {
         return None;
     }
     let indented = line.starts_with(' ') || line.starts_with('\t');
-    if head_toks.is_empty() && !indented && !s[p + 1..end - 1].trim().is_empty() {
+    if !allow_bare && head_toks.is_empty() && !indented && !s[p + 1..end - 1].trim().is_empty() {
         return None; // unindented bare `name(args) {` is more likely a call than a declaration
     }
     Some(name.to_string())
@@ -467,7 +467,7 @@ pub fn line_symbol(line: &str) -> Option<String> {
     if s.is_empty() || ["//", "/*", "*", "#", "--", ";"].iter().any(|p| s.starts_with(p)) {
         return None;
     }
-    method_symbol(line).or_else(|| keyword_symbol(s))
+    method_symbol(line, false).or_else(|| keyword_symbol(s))
 }
 
 fn keyword_symbol(s: &str) -> Option<String> {
@@ -496,6 +496,9 @@ fn keyword_symbol(s: &str) -> Option<String> {
             if rest.is_empty() || DECL.contains(&rest[0].0) || MODIFIERS.contains(&rest[0].0) {
                 return None;
             }
+            if (tok == "static" || tok == "const") && C_TYPES.contains(&rest[0].0) {
+                return None; // `static int` is the start of a C declaration, not a name
+            }
             return Some(rest[0].0.to_string());
         }
         if !MODIFIERS.contains(&tok) {
@@ -503,6 +506,108 @@ fn keyword_symbol(s: &str) -> Option<String> {
         }
     }
     None
+}
+
+/// Drop leading `@Name` / `@Name(...)` annotations (Java, C#-style attributes on the same line).
+fn strip_annotations(mut s: &str) -> &str {
+    while s.starts_with('@') {
+        let b = s.as_bytes();
+        let mut i = 1;
+        while i < b.len() && (is_ident_byte(b[i]) || b[i] == b'.') {
+            i += 1;
+        }
+        if i == 1 {
+            return s;
+        }
+        s = s[skip_group(s, i, b'(', b')')..].trim_start();
+    }
+    s
+}
+
+const C_TYPES: &[&str] = &[
+    "int", "long", "short", "char", "void", "float", "double", "signed", "unsigned", "bool", "boolean", "byte", "auto",
+];
+const COMMENT_STARTS: &[&str] = &["//", "/*", "*", "#", "--", ";"];
+const MAX_SIG_LINES: usize = 8;
+
+fn paren_depth(s: &str) -> i64 {
+    s.matches('(').count() as i64 - s.matches(')').count() as i64
+}
+
+/// A method whose signature spans several lines, or whose `{` sits alone on the next line.
+fn multiline_symbol(lines: &[&str], i: usize) -> Option<String> {
+    let raw = lines[i];
+    let s = strip_annotations(raw.trim());
+    if s.is_empty()
+        || !is_ident_byte(s.as_bytes()[0])
+        || s.as_bytes()[0].is_ascii_digit()
+        || !s.contains('(')
+        || s.ends_with(';')
+        || s.ends_with('}')
+    {
+        return None;
+    }
+    let mut joined = s.to_string();
+    let mut j = i;
+    let mut depth = paren_depth(&joined);
+    while depth > 0 && j - i < MAX_SIG_LINES && j + 1 < lines.len() {
+        j += 1;
+        let t = lines[j].trim();
+        if t.is_empty() || COMMENT_STARTS.iter().any(|p| t.starts_with(p)) {
+            continue;
+        }
+        joined.push(' ');
+        joined.push_str(t);
+        depth = paren_depth(&joined);
+    }
+    if depth != 0 {
+        return None;
+    }
+    let indent = if raw.starts_with(' ') || raw.starts_with('\t') {
+        &raw[..1]
+    } else {
+        ""
+    };
+    if joined.ends_with('{') {
+        return if j > i {
+            method_symbol(&format!("{}{}", indent, joined), false)
+        } else {
+            None
+        };
+    }
+    let mut k = j + 1;
+    while k < lines.len() && lines[k].trim().is_empty() {
+        k += 1;
+    }
+    if k < lines.len() && lines[k].trim() == "{" {
+        return method_symbol(&format!("{}{} {{", indent, joined), true);
+    }
+    None
+}
+
+/// Distinct declared names of a code chunk, in order (at most `MAX_SYMBOLS`).
+pub fn declared_names(text: &str) -> Vec<String> {
+    let mut names: Vec<String> = Vec::new();
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let lines: Vec<&str> = text.split('\n').collect();
+    for (i, ln) in lines.iter().enumerate() {
+        let mut name = line_symbol(ln);
+        if name.is_none() {
+            let t = ln.trim();
+            if !t.is_empty() && !COMMENT_STARTS.iter().any(|p| t.starts_with(p)) {
+                name = multiline_symbol(&lines, i);
+            }
+        }
+        if let Some(n) = name {
+            if seen.insert(n.to_lowercase()) {
+                names.push(n);
+            }
+        }
+        if names.len() >= MAX_SYMBOLS {
+            break;
+        }
+    }
+    names
 }
 
 /// Declared names in a chunk plus their sub-words, space separated (FTS `symbols` column).
@@ -521,16 +626,7 @@ pub fn symbols_of(kind: &str, text: &str) -> String {
             }
         }
     } else if kind == "code" {
-        for ln in text.split('\n') {
-            if let Some(name) = line_symbol(ln) {
-                if seen.insert(name.to_lowercase()) {
-                    names.push(name);
-                }
-            }
-            if names.len() >= MAX_SYMBOLS {
-                break;
-            }
-        }
+        names = declared_names(text);
     }
     if names.is_empty() {
         return String::new();

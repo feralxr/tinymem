@@ -67,6 +67,9 @@ class Golden(unittest.TestCase):
 METHOD_CASES = json.loads((pathlib.Path(__file__).resolve().parents[2] / "testdata" / "method_cases.json").read_text())
 
 
+MULTILINE_CASES = json.loads((pathlib.Path(__file__).resolve().parents[2] / "testdata" / "multiline_cases.json").read_text())
+
+
 class Engine(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
@@ -120,6 +123,10 @@ class Engine(unittest.TestCase):
     def test_method_symbols(self):
         for line, want in METHOD_CASES:
             self.assertEqual(core.line_symbol(line), want, line)
+
+    def test_multiline_signatures(self):
+        for text, want in MULTILINE_CASES:
+            self.assertEqual(core.declared_names(text), want, text)
 
     def test_filters(self):
         self.store.index(self.root)

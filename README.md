@@ -274,7 +274,7 @@ Both implementations are run on symlink loops and dangling symlinks, CRLF files,
 ## Limitations
 
 - One index covers one project root.
-- Symbol extraction is a fast line-based heuristic, not a parser. It finds `func`, `fn`, `def`, `class`, `struct`, `enum`, `trait`, `interface`, `type`, `function` and similar declarations (Go, Rust, Python, JavaScript/TypeScript, Ruby, and classes and types in Java, C# and C++), plus methods and functions whose signature sits on one line ending in `{` (JS/TS class methods and getters, Java, C#, C, C++, PHP). Signatures split across several lines, or with the brace on the next line, are not recognised as symbols, though the keyword search still finds them.
+- Symbol extraction is a fast line-based heuristic, not a parser. It finds `func`, `fn`, `def`, `class`, `struct`, `enum`, `trait`, `interface`, `type`, `function` and similar declarations (Go, Rust, Python, JavaScript/TypeScript, Ruby, and classes and types in Java, C# and C++), plus methods and functions without such a keyword (JS/TS class methods and getters, Java, C#, C, C++, PHP), including signatures split over several lines, with the brace on the next line, or preceded by annotations. Abstract and interface method declarations that end in `;` are not symbols, though the keyword search still finds them.
 - Scanned PDFs without a text layer are not OCR'd.
 - The vector scan is linear in the number of chunks. It stays comfortable to a few hundred thousand chunks.
 

@@ -1,0 +1,97 @@
+[
+ [
+  "public class A {\n    public void run(int x)\n    {\n        go();\n    }\n}",
+  [
+   "A",
+   "run"
+  ]
+ ],
+ [
+  "    public List<String> find(String name,\n                             int limit,\n                             boolean flag) {\n        return null;\n    }",
+  [
+   "find"
+  ]
+ ],
+ [
+  "  @GetMapping(\"/x\") public String bar() {\n  }",
+  [
+   "bar"
+  ]
+ ],
+ [
+  "  @Override\n  public String toString() {\n  }",
+  [
+   "toString"
+  ]
+ ],
+ [
+  "static int\nmain (int argc, char **argv)\n{\n  return 0;\n}",
+  [
+   "main"
+  ]
+ ],
+ [
+  "  async fetchUser(\n    id: string,\n    opts?: Options\n  ): Promise<User> {\n  }",
+  [
+   "fetchUser"
+  ]
+ ],
+ [
+  "    public async Task<int> CountAsync(string q)\n    {\n    }",
+  [
+   "CountAsync"
+  ]
+ ],
+ [
+  "    [HttpGet]\n    public IActionResult Index()\n    {\n    }",
+  [
+   "Index"
+  ]
+ ],
+ [
+  "pub fn foo(\n    a: u32,\n) -> Result<T> {\n}",
+  [
+   "foo"
+  ]
+ ],
+ [
+  "static COUNTER: u32 = 0;\nconst MAX: usize = 3;\npub const fn new() -> Self {",
+  [
+   "COUNTER",
+   "MAX",
+   "new"
+  ]
+ ],
+ [
+  "foo(\n  a, b\n);\nbar(x,\n  y);",
+  []
+ ],
+ [
+  "if (x &&\n    y)\n{\n  z();\n}",
+  []
+ ],
+ [
+  "describe('x',\n  () => {\n  });",
+  []
+ ],
+ [
+  "  while (running)\n  {\n  }",
+  []
+ ],
+ [
+  "  for (int i = 0;\n       i < n;\n       i++) {\n  }",
+  []
+ ],
+ [
+  "  return compute(a,\n                 b) {",
+  []
+ ],
+ [
+  "  switch (kind)\n  {\n    case 1: break;\n  }",
+  []
+ ],
+ [
+  "static int x = 3;\nstatic unsigned long y;",
+  []
+ ]
+]

@@ -7386,6 +7386,11 @@
   },
   {
    "kind": "code",
+   "text": "public class A {\n    public void run(int x)\n    {\n        go();\n    }\n}\n\n    public List<String> find(String name,\n                             int limit,\n                             boolean flag) {\n        return null;\n    }\n\n  @GetMapping(\"/x\") public String bar() {\n  }\n\n  @Override\n  public String toString() {\n  }\n\nstatic int\nmain (int argc, char **argv)\n{\n  return 0;\n}\n\n  async fetchUser(\n    id: string,\n    opts?: Options\n  ): Promise<User> {\n  }\n\n    public async Task<int> CountAsync(string q)\n    {\n    }\n\n    [HttpGet]\n    public IActionResult Index()\n    {\n    }\n\npub fn foo(\n    a: u32,\n) -> Result<T> {\n}\n\nstatic COUNTER: u32 = 0;\nconst MAX: usize = 3;\npub const fn new() -> Self {\n\nfoo(\n  a, b\n);\nbar(x,\n  y);\n\nif (x &&\n    y)\n{\n  z();\n}\n\ndescribe('x',\n  () => {\n  });\n\n  while (running)\n  {\n  }\n\n  for (int i = 0;\n       i < n;\n       i++) {\n  }\n\n  return compute(a,\n                 b) {\n\n  switch (kind)\n  {\n    case 1: break;\n  }\n\nstatic int x = 3;\nstatic unsigned long y;",
+   "symbols": "A run find bar toString main fetchUser CountAsync Index foo COUNTER MAX new to string fetch user count async"
+  },
+  {
+   "kind": "code",
    "text": "export default class Foo extends Bar {\nexport async function loadData() {\nexport interface Props {\nconst handler = async () => {}",
    "symbols": "Foo loadData Props handler load data"
   },
